@@ -1,27 +1,51 @@
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
 
-const int iX = 6;
-const int iY = 6;
-char maze[6][6];
+using namespace std;
 
-int main()
-{
-    std::fstream file("labirynt.txt");
-    std::string text;
-    char delimiter = ',';
+class Maze {
+public:
+  Maze() = default;
 
-    int x = 0;
-    while (getline(file, text)) {
-        char stringStart = 0;
-        char stringEnd = text.find(delimiter);
-        for (int i = 0; i < iY; ++i) {
-            std::cout << text.substr(stringStart, stringEnd) << " ";
-            stringStart = stringEnd + 1;
-            stringEnd = text.find(delimiter, stringStart - 1);
-        }
-        std::cout << std::endl;
+  void loadFromFile(const string &);
+  void printBoard();
+
+private:
+  vector<vector<int>> mazeMatrix;
+};
+
+void Maze::loadFromFile(const string &fileName) {
+  fstream file(fileName);
+  string line;
+
+  while (getline(file, line)) {
+    vector<int> row;
+    stringstream lineStream(line);
+    string cell;
+
+    while (getline(lineStream, cell, ',')) {
+      row.push_back(stoi(cell));
     }
+    mazeMatrix.push_back(row);
+  }
+}
 
-    return 0;
+void Maze::printBoard() {
+  for (const auto &row : mazeMatrix) {
+    for (const auto &value : row) {
+      cout << value << " ";
+    }
+    cout << endl;
+  }
+}
+
+int main() {
+  Maze maze;
+  maze.loadFromFile("labirynt.txt");
+  maze.printBoard();
+
+  return 0;
 }
