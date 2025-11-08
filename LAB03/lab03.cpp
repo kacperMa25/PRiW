@@ -1,21 +1,30 @@
+#include <algorithm>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <random>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
 enum Direction {
-    up,
-    down,
-    left,
-    right
+    up = 1,
+    down = 2,
+    left = 3,
+    right = 4,
+    none = 5
 };
 
 std::mutex coutMutex;
 
 struct Position {
+    Position()
+        : y(0)
+        , x(0)
+    {
+    }
     Position(const int _y, const int _x)
         : y(_y)
         , x(_x)
@@ -48,6 +57,8 @@ struct Position {
             y = other.y;
             x = other.x + 1;
             break;
+        default:
+            break;
         }
     }
 
@@ -71,6 +82,29 @@ struct Position {
         x--;
     }
 
+    void go(Direction dir)
+    {
+        switch (dir) {
+        case up:
+            y--;
+            break;
+
+        case down:
+            y++;
+            break;
+
+        case left:
+            x--;
+            break;
+
+        case right:
+            x++;
+            break;
+        default:
+            break;
+        }
+    }
+
     int y;
     int x;
 };
@@ -82,6 +116,7 @@ public:
 
     void loadFromFile(const std::string&);
     void printBoard();
+    void generateMaze(int, int);
     void run();
 
 private:
@@ -92,25 +127,29 @@ private:
     unsigned int threadCounter = 1;
     std::mutex threadCounterMutex;
 
-    bool trySpawningThread(const Position&);
     void threadTraverse(const int, const Position&);
+
     int getPositionStatus(const Position&);
     void setPositionStatus(const Position&, int);
     bool trySettingPositionStatus(const Position&, int);
+    bool trySpawningThread(const Position&);
+
     unsigned int getID();
+
+    void clearCellMutex();
+    void clear();
+
+    void generateDFS(int x, int y);
 };
 
 Maze::~Maze()
 {
-    for (auto& row : cellLock) {
-        for (auto& cell : row) {
-            delete cell;
-        }
-    }
+    clear();
 }
 
 void Maze::loadFromFile(const std::string& fileName)
 {
+    clear();
     std::fstream file(fileName);
     std::string line;
 
@@ -134,11 +173,45 @@ void Maze::loadFromFile(const std::string& fileName)
     }
 }
 
+void Maze::generateDFS(int y, int x)
+{
+    static const int dirs[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::vector<int> order = { 0, 1, 2, 3 };
+    std::shuffle(order.begin(), order.end(), g);
+
+    for (int i : order) {
+        int ny = y + dirs[i][0] * 2;
+        int nx = x + dirs[i][1] * 2;
+        if (ny > 0 && ny < mazeMatrix.size() - 1 && nx > 0 && nx < mazeMatrix[0].size() - 1 && mazeMatrix[ny][nx] == -1) {
+            mazeMatrix[y + dirs[i][0]][x + dirs[i][1]] = 0;
+            mazeMatrix[ny][nx] = 0;
+            generateDFS(ny, nx);
+        }
+    }
+}
+
+void Maze::generateMaze(int h, int w)
+{
+    clear();
+    mazeMatrix.assign(h, std::vector<int>(w, -1));
+
+    cellLock.resize(h);
+    for (int y = 0; y < h; ++y) {
+        cellLock[y].resize(w);
+        for (int x = 0; x < w; ++x)
+            cellLock[y][x] = new std::mutex();
+    }
+
+    generateDFS(1, 1);
+}
+
 void Maze::printBoard()
 {
     for (const auto& row : mazeMatrix) {
         for (const auto& value : row) {
-            std::cout << value << " ";
+            std::cout << std::setw(3) << value;
         }
         std::cout << std::endl;
     }
@@ -146,7 +219,16 @@ void Maze::printBoard()
 
 void Maze::run()
 {
-    Position startingPos = Position(1, 1);
+    Position startingPos;
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::uniform_int_distribution<> randomX(1, mazeMatrix[0].size() - 1);
+    std::uniform_int_distribution<> randomY(1, mazeMatrix.size() - 1);
+
+    while (mazeMatrix[startingPos.y][startingPos.x] != 0) {
+        startingPos.y = randomY(g);
+        startingPos.x = randomX(g);
+    }
 
     {
         std::lock_guard<std::mutex> guard(threadsMutex);
@@ -168,44 +250,25 @@ void Maze::run()
 
 void Maze::threadTraverse(const int tid, const Position& startingPos)
 {
+    trySettingPositionStatus(startingPos, tid);
     Position currentPos(startingPos);
-    trySettingPositionStatus(currentPos, tid);
     bool moved = true;
 
     while (moved) {
+        Direction whereToGo = none;
         moved = false;
+        for (int i = up; i != none; i++) {
+            Direction dir = static_cast<Direction>(i);
+            Position next = Position(currentPos, dir);
 
-        if (trySettingPositionStatus(Position(currentPos, down), tid)) {
-            currentPos.goDown();
-            moved = true;
-        }
-
-        if (!moved) {
-            if (trySettingPositionStatus(Position(currentPos, up), tid)) {
-                currentPos.goUp();
+            if (moved) {
+                trySpawningThread(next);
+            } else if (trySettingPositionStatus(next, tid)) {
                 moved = true;
+                whereToGo = dir;
             }
-        } else {
-            trySpawningThread(Position(currentPos, up));
         }
-
-        if (!moved) {
-            if (trySettingPositionStatus(Position(currentPos, left), tid)) {
-                currentPos.goLeft();
-                moved = true;
-            }
-        } else {
-            trySpawningThread(Position(currentPos, left));
-        }
-
-        if (!moved) {
-            if (trySettingPositionStatus(Position(currentPos, right), tid)) {
-                currentPos.goRight();
-                moved = true;
-            }
-        } else {
-            trySpawningThread(Position(currentPos, right));
-        }
+        currentPos.go(whereToGo);
     }
 
     std::lock_guard<std::mutex> guard(coutMutex);
@@ -264,10 +327,25 @@ unsigned int Maze::getID()
     return id;
 }
 
+void Maze::clearCellMutex()
+{
+    for (auto& row : cellLock) {
+        for (auto& cell : row) {
+            delete cell;
+        }
+    }
+    cellLock.clear();
+}
+
+void Maze::clear()
+{
+    clearCellMutex();
+    mazeMatrix.clear();
+}
 int main()
 {
     Maze maze;
-    maze.loadFromFile("labirynt.txt");
+    maze.generateMaze(10, 20);
     maze.run();
     maze.printBoard();
 
