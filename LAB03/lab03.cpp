@@ -245,8 +245,10 @@ bool Maze::trySpawningThread(const Position& pos)
     bool spawned = false;
     cellLock[pos.y][pos.x]->lock();
     if (mazeMatrix[pos.y][pos.x] == 0) {
+        int id = getID();
+        mazeMatrix[pos.y][pos.x] = id;
         std::lock_guard<std::mutex> guard(threadsMutex);
-        threads.push_back(std::thread(&Maze::threadTraverse, this, getID(), pos));
+        threads.push_back(std::thread(&Maze::threadTraverse, this, id, pos));
         spawned = true;
     }
     cellLock[pos.y][pos.x]->unlock();
