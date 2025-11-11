@@ -119,6 +119,8 @@ public:
     void generateMaze(int, int);
     void run();
 
+    void saveToPPM(const std::string&, const int);
+
 private:
     std::vector<std::vector<int>> mazeMatrix;
     std::vector<std::vector<std::mutex*>> cellLock;
@@ -230,9 +232,11 @@ void Maze::run()
         startingPos.x = randomX(g);
     }
 
+    int id = getID();
+    trySettingPositionStatus(startingPos, id);
     {
         std::lock_guard<std::mutex> guard(threadsMutex);
-        threads.push_back(std::thread(&Maze::threadTraverse, this, getID(), startingPos));
+        threads.push_back(std::thread(&Maze::threadTraverse, this, id, startingPos));
     }
 
     for (;;) {
@@ -248,9 +252,43 @@ void Maze::run()
     }
 }
 
+void Maze::saveToPPM(const std::string& fileName, const int scale = 1)
+{
+    std::ofstream file(fileName);
+    if (!file.is_open())
+        return;
+
+    const size_t height = mazeMatrix.size() * scale;
+    const size_t width = mazeMatrix[0].size() * scale;
+
+    file << "P3\n"
+         << width << " " << height << "\n255\n";
+
+    for (const auto& row : mazeMatrix) {
+        for (int i = 0; i < scale; ++i) {
+            for (const auto& cell : row) {
+                unsigned r, g, b;
+                if (cell == 0) {
+                    r = g = b = 255;
+                } else if (cell > 0) {
+                    r = (255 / threadCounter) * (cell - 1);
+                    g = 255 - r;
+                    b = 0;
+                } else {
+                    r = g = b = 0;
+                }
+                for (int j = 0; j < scale; ++j)
+                    file << r << " " << g << " " << b << " ";
+            }
+            file << "\n";
+        }
+    }
+
+    file.close();
+}
+
 void Maze::threadTraverse(const int tid, const Position& startingPos)
 {
-    trySettingPositionStatus(startingPos, tid);
     Position currentPos(startingPos);
     bool moved = true;
 
@@ -345,9 +383,10 @@ void Maze::clear()
 int main()
 {
     Maze maze;
-    maze.generateMaze(10, 20);
+    maze.generateMaze(40, 40);
     maze.run();
     maze.printBoard();
+    maze.saveToPPM("maze.ppm", 16);
 
     return 0;
 }
