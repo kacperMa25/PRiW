@@ -380,6 +380,7 @@ void Maze::clear()
     clearCellMutex();
     mazeMatrix.clear();
 }
+
 int main()
 {
     Maze maze;
