@@ -1,0 +1,58 @@
+% example.tex - Minimal but feature-rich LaTeX example
+% Compile with: pdflatex example.tex && bibtex example (or use latexmk -pdf example.tex)
+
+\documentclass[11pt,a4paper]{article}
+
+% Encoding and font/typography
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+
+% Page layout
+\usepackage[margin=2.5cm]{geometry}
+
+% Maths, figures, tables, code
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+
+% Listings (code) style
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  captionpos=b
+}
+
+% Document metadata
+\title{PRiW Zadanie 4}
+\author{Kacper Małecki}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+    Sprawozdania, które omawia użycie OpenMP, wyniki czasowe oraz sposoby podziału zadania dla wątku
+    przy wielowątkowym obliczaniu fraktala Mandelbrota.
+\end{abstract}
+
+
+\section{Sposoby podziału zadań}
+
+\section{Wyjaśnienie działania kodu}
+
+\section{Wyniki czasowe}
+Poniżej wykres który przedstawia zależność czasu wykonania od ilości użytych wątków:
+\begin{figure}
+    \centering
+        \includegraphics[width=0.6\textwidth]{../Plots/mandelbrot_size_1000.png}
+    \caption{}\label{}
+\end{figure}
+
+
+\end{document}
