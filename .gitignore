@@ -1,4 +1,17 @@
+# OS and IDE
 .idea
 .DS_Store
+
+# Compilation result
 *.out
 *.o
+
+# Latex
+*.aux
+*.fls
+*.fdb_latexmk
+*.fls
+*.log
+*.gz
+*.toc
+

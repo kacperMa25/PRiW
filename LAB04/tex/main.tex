@@ -19,6 +19,7 @@
 \usepackage{listings}
 \usepackage{color}
 \usepackage{hyperref}
+\usepackage{subcaption}   % w preambule
 
 % Listings (code) style
 \definecolor{codegray}{rgb}{0.95,0.95,0.95}
@@ -43,12 +44,48 @@
 
 
 \section{Sposoby podziału zadań}
+Przy wykonaniu zadania posłużyłem się 3 metodami (harmonogramami) podziału zadań dla wątków.
+\subsection{Static}
+Harmonogram static, który dzieli zadanie na prawie równe bloki zgodnie z ilością, którą
+mu podamy; gdy tego nie zrobimy każdy wątek dostanie jedną spójną część bloku. \break
+\begin{figure}[htbp]
+    \centering
+    
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
+        \caption{Obraz 1}
+    \end{subfigure}
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
+        \caption{Obraz 2}
+    \end{subfigure}
 
-\section{Wyjaśnienie działania kodu}
+    \vspace{1em}
+
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
+        \caption{Obraz 3}
+    \end{subfigure}
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
+        \caption{Obraz 4}
+    \end{subfigure}
+
+    \caption{Podział bloków w zależności od ilości użytych wątków}
+\end{figure}
+
+\subsection{Dynamic}
+
+\subsection{Guided}
+
 
 \section{Wyniki czasowe}
 Poniżej wykres który przedstawia zależność czasu wykonania od ilości użytych wątków:
-\begin{figure}
+\begin{figure}[htbp]
     \centering
         \includegraphics[width=0.6\textwidth]{../Plots/mandelbrot_size_1000.png}
     \caption{}\label{}
