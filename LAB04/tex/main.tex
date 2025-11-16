@@ -1,17 +1,11 @@
-% example.tex - Minimal but feature-rich LaTeX example
-% Compile with: pdflatex example.tex && bibtex example (or use latexmk -pdf example.tex)
-
 \documentclass[11pt,a4paper]{article}
 
-% Encoding and font/typography
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{microtype}
 
-% Page layout
 \usepackage[margin=2.5cm]{geometry}
 
-% Maths, figures, tables, code
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -21,7 +15,6 @@
 \usepackage{hyperref}
 \usepackage{subcaption}   % w preambule
 
-% Listings (code) style
 \definecolor{codegray}{rgb}{0.95,0.95,0.95}
 \lstset{
   backgroundcolor=\color{codegray},
@@ -31,7 +24,6 @@
   captionpos=b
 }
 
-% Document metadata
 \title{PRiW Zadanie 4}
 \author{Kacper Małecki}
 
@@ -47,49 +39,280 @@
 Przy wykonaniu zadania posłużyłem się 3 metodami (harmonogramami) podziału zadań dla wątków.
 \subsection{Static}
 Harmonogram static, który dzieli zadanie na prawie równe bloki zgodnie z ilością, którą
-mu podamy; gdy tego nie zrobimy każdy wątek dostanie jedną spójną część bloku. \break
+mu podamy; gdy tego nie zrobimy każdy wątek dostanie jedną spójną część bloku.
+Harmonogram ten zachowuje się tak samo jak pierwsze nasze podejście z poprzedniego labolatorium.
+W zależności od podanej wielkości bloku (w tym przypadku 1) może zachowywać się też jak nasze drugie
+podejście, gdzie przydzielaliśmy wiersz co przyjętą ilość wątków.
+\newline{}
 \begin{figure}[htbp]
     \centering
     
     \begin{subfigure}{0.25\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
-        \caption{Obraz 1}
+        \includegraphics[width=\textwidth]{../PPMs/Static2.png}
+        \caption{2 wątki}
     \end{subfigure}
     \begin{subfigure}{0.25\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
-        \caption{Obraz 2}
+        \centering \includegraphics[width=\textwidth]{../PPMs/Static4.png}
+        \caption{4 wątki}
     \end{subfigure}
 
     \vspace{1em}
 
     \begin{subfigure}{0.25\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{../PPMs/Static16.png}
-        \caption{Obraz 3}
+        \includegraphics[width=\textwidth]{../PPMs/Static8.png}
+        \caption{8 wątków}
     \end{subfigure}
     \begin{subfigure}{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{../PPMs/Static16.png}
-        \caption{Obraz 4}
+        \caption{16 wątków}
     \end{subfigure}
 
-    \caption{Podział bloków w zależności od ilości użytych wątków}
+    \caption{\centering Harmonagramowanie static; podział bloków w zależności od ilości użytych wątków z domyślną wielkością bloku}
 \end{figure}
+\newline{}
 
+Zalety:
+\begin{itemize}
+    \item Mały narzut (przydział raz).
+    \item Dobra lokalność pamięci (ciągłe zakresy).
+\end{itemize}
+Wady:
+\begin{itemize}
+    \item Słabe wyrównanie obciążenia, jeśli iteracje mają różny koszt.
+\end{itemize}
 \subsection{Dynamic}
 
-\subsection{Guided}
+Iteracje są podzielone na kawałki o podanej wielkości. domyślnie jest to 1. Każdy wątek pobiera kolejny dostępny kawałek „na żądanie” (runtime utrzymuje licznik kolejnego chunku i atomowo go inkrementuje).
+Gdy wątek skończy swój kawałek, bierze następny. Jest to odpowiednik naszego podejścia z mutexem.
 
-
-\section{Wyniki czasowe}
-Poniżej wykres który przedstawia zależność czasu wykonania od ilości użytych wątków:
 \begin{figure}[htbp]
     \centering
-        \includegraphics[width=0.6\textwidth]{../Plots/mandelbrot_size_1000.png}
-    \caption{}\label{}
+    
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Dynamic2.png}
+        \caption{2 wątki}
+    \end{subfigure}
+    \begin{subfigure}{0.25\textwidth}
+        \centering \includegraphics[width=\textwidth]{../PPMs/Dynamic4.png}
+        \caption{4 wątki}
+    \end{subfigure}
+
+    \vspace{1em}
+
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Dynamic8.png}
+        \caption{8 wątków}
+    \end{subfigure}
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Dynamic16.png}
+        \caption{16 wątków}
+    \end{subfigure}
+    
+    \caption{\centering Harmonagramowanie Dynamic; podział bloków w zależności od ilości użytych wątków z domyślną wielkością bloku}
+\end{figure}
+\break
+
+Zalety:
+\begin{itemize}
+    \item Świetne wyrównanie obciążenia przy dużych różnicach w czasie iteracji.
+    \item Większy narzut (atomowe/licznikowe operacje, większe przełączanie).
+\end{itemize}
+
+Wady:
+\begin{itemize}
+    \item Gorsza lokalność pamięci (wątki mogą wykonywać odległe zakresy).
+\end{itemize}
+
+\subsection{Guided}
+Harmonagramowanie Guided to podejście hybrydowe pomiędzy static a dynamic; gdy wątek zarząda kolejnego bloku
+środowisko wykonawcze przydzieli mu blok o następującym rozmiarze:
+\newline
+\[
+\mathrm{Blok}
+= \max\!\left(
+    \left\lceil \frac{R}{T} \right\rceil,\,
+    C_{\min}
+\right)
+\]
+\begin {center}
+gdzie:
+\end {center}
+\begin{description}
+    \centering
+    \item[$R$] - całkowita liczba pozostałych rekordów
+    \item[$T$] - liczba wątków / podziałów
+    \item[$C_{\min}$] - minimalny rozmiar bloku
+    \item[$\mathrm{Blok}$] - wynikowy rozmiar chunku
+\end{description}
+
+W rezultacie przydzielane bloki stają się coraz mniejsze.
+
+\begin{figure}[htbp]
+    \centering
+    
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Guided2.png}
+        \caption{2 wątki}
+    \end{subfigure}
+    \begin{subfigure}{0.25\textwidth}
+        \centering \includegraphics[width=\textwidth]{../PPMs/Guided4.png}
+        \caption{4 wątki}
+    \end{subfigure}
+
+    \vspace{1em}
+
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Guided8.png}
+        \caption{8 wątków}
+    \end{subfigure}
+    \begin{subfigure}{0.25\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/Guided16.png}
+        \caption{16 wątków}
+    \end{subfigure}
+    
+    \caption{\centering Harmonagramowanie Guided; podział bloków w zależności od ilości użytych wątków z domyślną wielkością bloku}
+\end{figure}
+\break
+
+Zalety:
+\begin{itemize}
+    \item Kompromis między niskim overheadem (duże początkowe bloki) a dobrym wyrównaniem (małe końcowe bloki).
+\end{itemize}
+Wady:
+\begin{itemize}
+    \item Implementacje i zachowanie zależą nieco od runtime’u.
+\end{itemize}
+\bigbreak{}
+
+\section{Struktura kodu}
+
+Struktura wszystkich programów wygląda w ten sposób:
+\begin{lstlisting}[caption={Generalana struktura},language={C++}]
+    // Deklaracja zmiennych
+    double Cx, Cy;
+    double PixelWidth = (CxMax - CxMin) / iXmax;
+    double PixelHeight = (CyMax - CyMin) / iYmax;
+    double Zx, Zy, Zx2, Zy2;
+    double ER2 = EscapeRadius * EscapeRadius;
+
+    /**
+        Rozpoczecie pracy watku, oraz wskazanie jakich zmiennych powinien uzyc "lokalnie", aby uniknac wspoldzielenia pamieci z innymi watkami
+    **/
+#pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
+    {
+        int tid = omp_get_thread_num();
+        auto start = omp_get_wtime();
+
+        long int localSum = 0;
+
+        unsigned char threadColor[3];
+        threadColor[0] = (255 / nr_threads) * tid;
+        threadColor[1] = 255 - threadColor[0];
+        threadColor[2] = 0;
+
+    // Wybor harmonogramowania oraz rozmiaru bloku 
+#pragma omp for schedule(HARMONOGRAM, ROZMIAR BLOKU)
+        for (int iY = 0; iY < iYmax; ++iY) {
+            ...
+        }
+\end{lstlisting}
+Różnica między tymi trzema implementacjami w kodzie, polega tylko i wyłącznie na zmianie
+HARMONOGRAM na static, dynamic, bądź guided. 
+\section{Wyniki czasowe}
+
+Na wykresach przedstawiono czasy obliczeń fraktala Mandelbrota dla trzech rozmiarów
+obrazu: 1000×1000, 5000×5000 oraz 10000×10000, z użyciem trzech harmonogramów OpenMP:
+\texttt{static}, \texttt{dynamic} oraz \texttt{guided}. Dla wszystkich testów analizowano wpływ liczby 
+wątków (2, 4, 8, 16) na czas wykonania.
+\newline{}
+
+\begin{figure}[htbp]
+    \centering
+    
+    \begin{subfigure}{0.75\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../Plots/mandelbrot_size_1000.png}
+        \caption{1000×1000}
+    \end{subfigure}
+    \begin{subfigure}{0.75\textwidth}
+        \includegraphics[width=\textwidth]{../Plots/mandelbrot_size_5000.png}
+        \caption{5000×5000}
+    \end{subfigure}
+
+    \begin{subfigure}{0.75\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../Plots/mandelbrot_size_10000.png}
+        \caption{10000×10000}
+    \end{subfigure}
+    
+    \caption{\centering Wyniki czasowe w zależności od razmiaru oraz ilości wątków}
 \end{figure}
 
+Zwiększanie liczby wątków powoduje wyraźne skracanie czasu obliczeń
+dla wszystkich harmonogramów. Największa poprawa widoczna jest przy przejściu z 2 do 4 wątków.
+Przy tym zakresie narzut synchronizacji jest niewielki,
+a dodatkowe wątki są w pełni wykorzystane. Dalsze zwiększanie liczby wątków — do 8 oraz 16 —
+również zmniejsza czas wykonania,
+choć przyrost szybkości staje się stopniowo mniejszy.
+\newline{}
 
+Harmonogram \texttt{static} skaluje się najsłabiej.
+Różnice w liczbie iteracji pomiędzy poszczególnymi obszarami obrazu
+powodują nierówne obciążenie wątków,
+przez co część z nich kończy pracę wcześniej
+i pozostaje bezczynna.
+\newline{}
+
+Harmonogramy \texttt{dynamic} oraz \texttt{guided}
+lepiej wykorzystują większą liczbę wątków.
+Przy 8 i 16 wątkach oba z nich zapewniają wyraźne skrócenie czasu,
+ponieważ zadania są pobierane na bieżąco
+i obciążenie pozostaje wyrównane nawet przy dużej liczbie iteracji.
+\newline{}
+
+Wynik z konsoli po uruchomieniu programu:
+\begin{lstlisting}[caption={Czasy wykonania oraz ilość wykonanych iteracji dla każdego wątku },language={bash}]
+Guided: 1.59558 s
+Thread 0: 1.59507 s, iterations executed: 584298201
+Thread 1: 1.59508 s, iterations executed: 627917397
+Thread 2: 1.59508 s, iterations executed: 581223939
+Thread 3: 1.59506 s, iterations executed: 667332714
+Thread 4: 1.59506 s, iterations executed: 691528148
+Thread 5: 1.59508 s, iterations executed: 600463800
+Thread 6: 1.59506 s, iterations executed: 711962679
+Thread 7: 1.59506 s, iterations executed: 586498105
+
+Static: 4.4613 s
+Thread 0: 4.46128 s, iterations executed: 18163052
+Thread 1: 4.46129 s, iterations executed: 26592758
+Thread 2: 4.46129 s, iterations executed: 456477744
+Thread 3: 4.46127 s, iterations executed: 2022970732
+Thread 4: 4.46128 s, iterations executed: 2024707589
+Thread 5: 4.46129 s, iterations executed: 457536751
+Thread 6: 4.46129 s, iterations executed: 26606693
+Thread 7: 4.46129 s, iterations executed: 18169664
+
+Dynamic: 1.60001 s
+Thread 0: 1.59999 s, iterations executed: 711962679
+Thread 1: 1.6 s, iterations executed: 602700007
+Thread 2: 1.59999 s, iterations executed: 586498105
+Thread 3: 1.59999 s, iterations executed: 583139419
+Thread 4: 1.59998 s, iterations executed: 627917397
+Thread 5: 1.59998 s, iterations executed: 691528148
+Thread 6: 1.6 s, iterations executed: 578987732
+Thread 7: 1.59998 s, iterations executed: 668491496
+\end{lstlisting}
+
+Patrząc na ilość wykonanych iteracji dla każdego wątku można stwierdzić,
+że najlepsze rozłożenie pracy zapewnia Harmonogram guided oraz dynamic (przy założeniu
+domyślnych rozmiarów bloków).
 \end{document}

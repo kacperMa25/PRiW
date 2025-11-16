@@ -6,8 +6,8 @@
 #include <omp.h>
 #include <stdio.h>
 
-const int iXmax = 1000;
-const int iYmax = 1000;
+const int iXmax = 10000;
+const int iYmax = 10000;
 const double CxMin = -2.5;
 const double CxMax = 1.5;
 const double CyMin = -2.0;
@@ -15,7 +15,7 @@ const double CyMax = 2.0;
 const int MaxColorComponentValue = 255;
 const int IterationMax = 500;
 const double EscapeRadius = 2;
-const int nr_threads = 16;
+const int nr_threads = 8;
 
 unsigned char color[iYmax][iXmax][3];
 
@@ -48,14 +48,15 @@ double runExperiment(const std::string& name, Func func, int runs,
 
     avgTime /= runs;
 
-    csv << name << "," << nr_threads << "," << iXmax << "," << avgTime << "\n";
+    // csv << name << "," << nr_threads << "," << iXmax << "," << avgTime << "\n";
     std::cout << name << ": " << avgTime << " s\n";
     for (int tid = 0; tid < nr_threads; ++tid) {
-        std::cout << "Thread " << tid << ": " << threadExecTime[tid] << " s"
+        std::cout << "Thread " << tid << ": " << threadExecTime[tid] << " s" << ", iterations executed: " << sum[tid]
                   << std::endl;
     }
     std::cout << std::endl;
 
+    /**
     FILE* fp;
     char* comment = "# ";
     fp = fopen((name + std::to_string(nr_threads) + ".ppm").c_str(), "wb");
@@ -68,6 +69,7 @@ double runExperiment(const std::string& name, Func func, int runs,
         }
     }
     fclose(fp);
+    **/
 
     return 0;
 }
