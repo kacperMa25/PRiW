@@ -210,7 +210,6 @@ Struktura wszystkich programów wygląda w ten sposób:
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
         int tid = omp_get_thread_num();
-        auto start = omp_get_wtime();
 
         long int localSum = 0;
 
@@ -224,6 +223,8 @@ Struktura wszystkich programów wygląda w ten sposób:
         for (int iY = 0; iY < iYmax; ++iY) {
             ...
         }
+        ...
+    }
 \end{lstlisting}
 Różnica między tymi trzema implementacjami w kodzie, polega tylko i wyłącznie na zmianie
 HARMONOGRAM na static, dynamic, bądź guided. 
@@ -281,38 +282,40 @@ i obciążenie pozostaje wyrównane nawet przy dużej liczbie iteracji.
 
 Wynik z konsoli po uruchomieniu programu:
 \begin{lstlisting}[caption={Czasy wykonania oraz ilość wykonanych iteracji dla każdego wątku },language={bash}]
-Guided: 1.59558 s
-Thread 0: 1.59507 s, iterations executed: 584298201
-Thread 1: 1.59508 s, iterations executed: 627917397
-Thread 2: 1.59508 s, iterations executed: 581223939
-Thread 3: 1.59506 s, iterations executed: 667332714
-Thread 4: 1.59506 s, iterations executed: 691528148
-Thread 5: 1.59508 s, iterations executed: 600463800
-Thread 6: 1.59506 s, iterations executed: 711962679
-Thread 7: 1.59506 s, iterations executed: 586498105
+Guided: 1.59759 s
+Thread 0 iterations executed: 691528148
+Thread 1 iterations executed: 711962679
+Thread 2 iterations executed: 586498105
+Thread 3 iterations executed: 580382681
+Thread 4 iterations executed: 584298201
+Thread 5 iterations executed: 627917397
+Thread 6 iterations executed: 667332714
+Thread 7 iterations executed: 601305058
 
-Static: 4.4613 s
-Thread 0: 4.46128 s, iterations executed: 18163052
-Thread 1: 4.46129 s, iterations executed: 26592758
-Thread 2: 4.46129 s, iterations executed: 456477744
-Thread 3: 4.46127 s, iterations executed: 2022970732
-Thread 4: 4.46128 s, iterations executed: 2024707589
-Thread 5: 4.46129 s, iterations executed: 457536751
-Thread 6: 4.46129 s, iterations executed: 26606693
-Thread 7: 4.46129 s, iterations executed: 18169664
+Static: 4.4611 s
+Thread 0 iterations executed: 18163052
+Thread 1 iterations executed: 26592758
+Thread 2 iterations executed: 456477744
+Thread 3 iterations executed: 2022970732
+Thread 4 iterations executed: 2024707589
+Thread 5 iterations executed: 457536751
+Thread 6 iterations executed: 26606693
+Thread 7 iterations executed: 18169664
 
-Dynamic: 1.60001 s
-Thread 0: 1.59999 s, iterations executed: 711962679
-Thread 1: 1.6 s, iterations executed: 602700007
-Thread 2: 1.59999 s, iterations executed: 586498105
-Thread 3: 1.59999 s, iterations executed: 583139419
-Thread 4: 1.59998 s, iterations executed: 627917397
-Thread 5: 1.59998 s, iterations executed: 691528148
-Thread 6: 1.6 s, iterations executed: 578987732
-Thread 7: 1.59998 s, iterations executed: 668491496
+Dynamic: 1.59795 s
+Thread 0 iterations executed: 583139419
+Thread 1 iterations executed: 711962679
+Thread 2 iterations executed: 670236686
+Thread 3 iterations executed: 626172207
+Thread 4 iterations executed: 697229612
+Thread 5 iterations executed: 572770822
+Thread 6 iterations executed: 586498105
+Thread 7 iterations executed: 603215453
+
 \end{lstlisting}
 
 Patrząc na ilość wykonanych iteracji dla każdego wątku można stwierdzić,
 że najlepsze rozłożenie pracy zapewnia Harmonogram guided oraz dynamic (przy założeniu
 domyślnych rozmiarów bloków).
+\newline{}
 \end{document}

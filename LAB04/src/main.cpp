@@ -51,7 +51,7 @@ double runExperiment(const std::string& name, Func func, int runs,
     // csv << name << "," << nr_threads << "," << iXmax << "," << avgTime << "\n";
     std::cout << name << ": " << avgTime << " s\n";
     for (int tid = 0; tid < nr_threads; ++tid) {
-        std::cout << "Thread " << tid << ": " << threadExecTime[tid] << " s" << ", iterations executed: " << sum[tid]
+        std::cout << "Thread " << tid << " iterations executed: " << sum[tid]
                   << std::endl;
     }
     std::cout << std::endl;
@@ -102,7 +102,6 @@ void mandelbrotThreadGuided()
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
         int tid = omp_get_thread_num();
-        auto start = omp_get_wtime();
 
         long int localSum = 0;
 
@@ -147,9 +146,6 @@ void mandelbrotThreadGuided()
         }
 
         sum[tid] = localSum;
-
-        auto end = omp_get_wtime();
-        threadExecTime[tid] = end - start;
     }
 }
 
@@ -164,7 +160,6 @@ void mandelbrotThreadStatic()
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
         int tid = omp_get_thread_num();
-        auto start = omp_get_wtime();
 
         long int localSum = 0;
 
@@ -209,9 +204,6 @@ void mandelbrotThreadStatic()
         }
 
         sum[tid] = localSum;
-
-        auto end = omp_get_wtime();
-        threadExecTime[tid] = end - start;
     }
 }
 
@@ -226,8 +218,6 @@ void mandelbrotThreadDynamic()
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
         int tid = omp_get_thread_num();
-        auto start = omp_get_wtime();
-
         long int localSum = 0;
 
         unsigned char threadColor[3];
@@ -271,8 +261,5 @@ void mandelbrotThreadDynamic()
         }
 
         sum[tid] = localSum;
-
-        auto end = omp_get_wtime();
-        threadExecTime[tid] = end - start;
     }
 }
