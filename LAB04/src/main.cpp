@@ -23,9 +23,9 @@ long int sum[nr_threads] = { 0 };
 double threadExecTime[nr_threads] = { 0 };
 int counter = 0;
 
-void mandelbrotThreadGuided();
-void mandelbrotThreadStatic();
-void mandelbrotThreadDynamic();
+void mandelbrotThreadGuided(int blockSize);
+void mandelbrotThreadStatic(int blockSize);
+void mandelbrotThreadDynamic(int blockSize);
 
 template <typename Func>
 double runExperiment(const std::string& name, Func func, int runs,
@@ -38,23 +38,29 @@ double runExperiment(const std::string& name, Func func, int runs,
         counter = 0;
     }
 
-    for (int i = 0; i < runs; ++i) {
-        auto start = omp_get_wtime();
-        func();
-        auto end = omp_get_wtime();
+    int maxBlockSize = 1;
+    int blockJump = 2;
+    for (int j = 1; j <= maxBlockSize; j *= blockJump) {
+        std::cout << "Size " << j << std::endl;
+        for (int i = 0; i < runs; ++i) {
 
-        avgTime += end - start;
+            auto start = omp_get_wtime();
+            func(j);
+            auto end = omp_get_wtime();
+
+            avgTime += end - start;
+        }
+        avgTime /= runs;
+        std::cout << name << ": " << avgTime << " s\n";
+        for (int tid = 0; tid < nr_threads; ++tid) {
+            std::cout << "Thread " << tid << " iterations executed: " << sum[tid]
+                      << ", execution time: " << threadExecTime[tid]
+                      << std::endl;
+        }
+        std::cout << std::endl;
+
+        csv << name << "," << nr_threads << "," << iXmax << "," << j << "," << avgTime << "\n";
     }
-
-    avgTime /= runs;
-
-    // csv << name << "," << nr_threads << "," << iXmax << "," << avgTime << "\n";
-    std::cout << name << ": " << avgTime << " s\n";
-    for (int tid = 0; tid < nr_threads; ++tid) {
-        std::cout << "Thread " << tid << " iterations executed: " << sum[tid]
-                  << std::endl;
-    }
-    std::cout << std::endl;
 
     /**
     FILE* fp;
@@ -70,16 +76,16 @@ double runExperiment(const std::string& name, Func func, int runs,
     }
     fclose(fp);
     **/
-
     return 0;
 }
 
 int main()
 {
-    bool newFile = !std::filesystem::exists("../mandelbrot_times_pc.csv");
-    std::ofstream csv("../mandelbrot_times_pc.csv", std::ios::app);
+    std::string fileName("../mandelbrot_times_pc_sizes.csv");
+    bool newFile = !std::filesystem::exists(fileName);
+    std::ofstream csv(fileName, std::ios::app);
     if (newFile)
-        csv << "method,threads,size,time_seconds\n";
+        csv << "method,threads,size,blockSize,time_seconds\n";
 
     omp_set_num_threads(nr_threads);
 
@@ -91,7 +97,7 @@ int main()
     return 0;
 }
 
-void mandelbrotThreadGuided()
+void mandelbrotThreadGuided(int blockSize)
 {
     double Cx, Cy;
     double PixelWidth = (CxMax - CxMin) / iXmax;
@@ -101,6 +107,7 @@ void mandelbrotThreadGuided()
 
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
+        auto start = omp_get_wtime();
         int tid = omp_get_thread_num();
 
         long int localSum = 0;
@@ -110,7 +117,7 @@ void mandelbrotThreadGuided()
         threadColor[1] = 255 - threadColor[0];
         threadColor[2] = 0;
 
-#pragma omp for schedule(guided)
+#pragma omp for schedule(guided, blockSize) nowait
         for (int iY = 0; iY < iYmax; ++iY) {
 
             Cy = CyMin + iY * PixelHeight;
@@ -146,10 +153,12 @@ void mandelbrotThreadGuided()
         }
 
         sum[tid] = localSum;
+        auto end = omp_get_wtime();
+        threadExecTime[tid] = end - start;
     }
 }
 
-void mandelbrotThreadStatic()
+void mandelbrotThreadStatic(int blockSize)
 {
     double Cx, Cy;
     double PixelWidth = (CxMax - CxMin) / iXmax;
@@ -159,6 +168,7 @@ void mandelbrotThreadStatic()
 
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
+        auto start = omp_get_wtime();
         int tid = omp_get_thread_num();
 
         long int localSum = 0;
@@ -168,7 +178,7 @@ void mandelbrotThreadStatic()
         threadColor[1] = 255 - threadColor[0];
         threadColor[2] = 0;
 
-#pragma omp for schedule(static)
+#pragma omp for schedule(static, blockSize) nowait
         for (int iY = 0; iY < iYmax; ++iY) {
 
             Cy = CyMin + iY * PixelHeight;
@@ -204,10 +214,12 @@ void mandelbrotThreadStatic()
         }
 
         sum[tid] = localSum;
+        auto end = omp_get_wtime();
+        threadExecTime[tid] = end - start;
     }
 }
 
-void mandelbrotThreadDynamic()
+void mandelbrotThreadDynamic(int blockSize)
 {
     double Cx, Cy;
     double PixelWidth = (CxMax - CxMin) / iXmax;
@@ -217,6 +229,7 @@ void mandelbrotThreadDynamic()
 
 #pragma omp parallel private(Cx, Cy, Zx, Zy, Zx2, Zy2)
     {
+        auto start = omp_get_wtime();
         int tid = omp_get_thread_num();
         long int localSum = 0;
 
@@ -225,7 +238,7 @@ void mandelbrotThreadDynamic()
         threadColor[1] = 255 - threadColor[0];
         threadColor[2] = 0;
 
-#pragma omp for schedule(dynamic)
+#pragma omp for schedule(dynamic, blockSize) nowait
         for (int iY = 0; iY < iYmax; ++iY) {
 
             Cy = CyMin + iY * PixelHeight;
@@ -261,5 +274,7 @@ void mandelbrotThreadDynamic()
         }
 
         sum[tid] = localSum;
+        auto end = omp_get_wtime();
+        threadExecTime[tid] = end - start;
     }
 }

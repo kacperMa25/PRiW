@@ -31,10 +31,24 @@
 \maketitle
 \begin{abstract}
     Sprawozdania, które omawia użycie OpenMP, wyniki czasowe oraz sposoby podziału zadania dla wątku
-    przy wielowątkowym obliczaniu fraktala Mandelbrota.
+    przy wielowątkowym obliczaniu fraktala Mandelbrota. \\
+\centering{
+    \\
+Specyfikacje procesora: \\
+Nazwa: Ryzen 7 7800X3D (Desktop)  \\
+Ilość procesorów: 8 \\
+Ilość wątków: 16 \\
+Base Clock: 4.2 GHz\\
+Boost Clock: 5.0 GHz\\
+L1 Cache: 512 KB\\
+L2 Cache: 8 MB\\
+L3 Cache: 96 MB\\
+Default TDP: 120W
+}
 \end{abstract}
 
 
+\newpage{}
 \section{Sposoby podziału zadań}
 Przy wykonaniu zadania posłużyłem się 3 metodami (harmonogramami) podziału zadań dla wątków.
 \subsection{Static}
@@ -72,7 +86,6 @@ podejście, gdzie przydzielaliśmy wiersz co przyjętą ilość wątków.
 
     \caption{\centering Harmonagramowanie static; podział bloków w zależności od ilości użytych wątków z domyślną wielkością bloku}
 \end{figure}
-\newline{}
 
 Zalety:
 \begin{itemize}
@@ -81,11 +94,13 @@ Zalety:
 \end{itemize}
 Wady:
 \begin{itemize}
-    \item Słabe wyrównanie obciążenia, jeśli iteracje mają różny koszt.
+    \item Słabe wyrównanie obciążenia, jeśli iteracje mają różny koszt (przy założeniu domyślnego rozmiaru bloku).
 \end{itemize}
+
+\newpage{}
 \subsection{Dynamic}
 
-Iteracje są podzielone na kawałki o podanej wielkości. domyślnie jest to 1. Każdy wątek pobiera kolejny dostępny kawałek „na żądanie” (runtime utrzymuje licznik kolejnego chunku i atomowo go inkrementuje).
+Iteracje są podzielone na kawałki o podanej wielkości. domyślnie jest to 1. Każdy wątek pobiera kolejny dostępny kawałek „na żądanie” (runtime utrzymuje licznik kolejnego bloku i atomowo go inkrementuje).
 Gdy wątek skończy swój kawałek, bierze następny. Jest to odpowiednik naszego podejścia z mutexem.
 
 \begin{figure}[htbp]
@@ -116,7 +131,6 @@ Gdy wątek skończy swój kawałek, bierze następny. Jest to odpowiednik naszeg
     
     \caption{\centering Harmonagramowanie Dynamic; podział bloków w zależności od ilości użytych wątków z domyślną wielkością bloku}
 \end{figure}
-\break
 
 Zalety:
 \begin{itemize}
@@ -129,6 +143,7 @@ Wady:
     \item Gorsza lokalność pamięci (wątki mogą wykonywać odległe zakresy).
 \end{itemize}
 
+\newpage{}
 \subsection{Guided}
 Harmonagramowanie Guided to podejście hybrydowe pomiędzy static a dynamic; gdy wątek zarząda kolejnego bloku
 środowisko wykonawcze przydzieli mu blok o następującym rozmiarze:
@@ -146,9 +161,9 @@ gdzie:
 \begin{description}
     \centering
     \item[$R$] - całkowita liczba pozostałych rekordów
-    \item[$T$] - liczba wątków / podziałów
+    \item[$T$] - liczba podziałów
     \item[$C_{\min}$] - minimalny rozmiar bloku
-    \item[$\mathrm{Blok}$] - wynikowy rozmiar chunku
+    \item[$\mathrm{Blok}$] - wynikowy rozmiar bloku
 \end{description}
 
 W rezultacie przydzielane bloki stają się coraz mniejsze.
@@ -185,7 +200,7 @@ W rezultacie przydzielane bloki stają się coraz mniejsze.
 
 Zalety:
 \begin{itemize}
-    \item Kompromis między niskim overheadem (duże początkowe bloki) a dobrym wyrównaniem (małe końcowe bloki).
+    \item Kompromis między niskim overhead (duże początkowe bloki) a dobrym wyrównaniem (małe końcowe bloki).
 \end{itemize}
 Wady:
 \begin{itemize}
@@ -219,7 +234,7 @@ Struktura wszystkich programów wygląda w ten sposób:
         threadColor[2] = 0;
 
     // Wybor harmonogramowania oraz rozmiaru bloku 
-#pragma omp for schedule(HARMONOGRAM, ROZMIAR BLOKU)
+#pragma omp for schedule(HARMONOGRAM, ROZMIAR BLOKU) nowait //Nie synchronizujemy wątków po wykonaniu pętli
         for (int iY = 0; iY < iYmax; ++iY) {
             ...
         }
@@ -228,12 +243,14 @@ Struktura wszystkich programów wygląda w ten sposób:
 \end{lstlisting}
 Różnica między tymi trzema implementacjami w kodzie, polega tylko i wyłącznie na zmianie
 HARMONOGRAM na static, dynamic, bądź guided. 
-\section{Wyniki czasowe}
 
+\newpage{}
+\section{Wyniki czasowe}
+\subsection{Jak liczba wątków wpływa na czas wykonaia}
 Na wykresach przedstawiono czasy obliczeń fraktala Mandelbrota dla trzech rozmiarów
 obrazu: 1000×1000, 5000×5000 oraz 10000×10000, z użyciem trzech harmonogramów OpenMP:
 \texttt{static}, \texttt{dynamic} oraz \texttt{guided}. Dla wszystkich testów analizowano wpływ liczby 
-wątków (2, 4, 8, 16) na czas wykonania.
+wątków (2, 4, 8, 16) na czas wykonania. Wykresy na następnej stronie.
 \newline{}
 
 \begin{figure}[htbp]
@@ -280,42 +297,63 @@ ponieważ zadania są pobierane na bieżąco
 i obciążenie pozostaje wyrównane nawet przy dużej liczbie iteracji.
 \newline{}
 
+\newpage{}
+\subsection{Wpływ doboru rozmiaru bloku}
+Jednak, gdy postanowimy dynamicznie dobierać rozmiary bloków okazuję się,
+że najlepsze rozłożenie problemu dostajemy od harmonogramu static i rozmiaru
+bloku 1. Podejście te ma duży overhead, jednak dostajemy prawie idealny podział
+bloków, co zdecydowanie przyspiesza program. Dynamic i Guided pokrywają się na
+wykresie. W przypadku dynamic, gdy zwiększamy rozmair bloku środowisko uruchomieniowe 
+ma mniej pola do popisu przy dynamicznym rozdzielaniu .
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{../Plots/mandelbrot_block_size.png}
+
+    \caption{\centering Wyniki czasowe w zależności od razmiaru bloku}
+\end{figure}
+
+
+\newpage{}
+\subsection{Analiza wyniku z konsoli}
 Wynik z konsoli po uruchomieniu programu:
 \begin{lstlisting}[caption={Czasy wykonania oraz ilość wykonanych iteracji dla każdego wątku },language={bash}]
-Guided: 1.59759 s
-Thread 0 iterations executed: 691528148
-Thread 1 iterations executed: 711962679
-Thread 2 iterations executed: 586498105
-Thread 3 iterations executed: 580382681
-Thread 4 iterations executed: 584298201
-Thread 5 iterations executed: 627917397
-Thread 6 iterations executed: 667332714
-Thread 7 iterations executed: 601305058
+Size 1
+Guided: 1.59909 s
+Thread 0 iterations executed: 584298201, execution time: 1.26596
+Thread 1 iterations executed: 627917397, execution time: 1.38379
+Thread 2 iterations executed: 603838298, execution time: 1.24668
+Thread 3 iterations executed: 667332714, execution time: 1.50119
+Thread 4 iterations executed: 691528148, execution time: 1.5564
+Thread 5 iterations executed: 711962679, execution time: 1.59857
+Thread 6 iterations executed: 577849441, execution time: 1.2467
+Thread 7 iterations executed: 586498105, execution time: 1.28396
 
-Static: 4.4611 s
-Thread 0 iterations executed: 18163052
-Thread 1 iterations executed: 26592758
-Thread 2 iterations executed: 456477744
-Thread 3 iterations executed: 2022970732
-Thread 4 iterations executed: 2024707589
-Thread 5 iterations executed: 457536751
-Thread 6 iterations executed: 26606693
-Thread 7 iterations executed: 18169664
+Size 1
+Static: 1.35927 s
+Thread 0 iterations executed: 631928595, execution time: 1.35926
+Thread 1 iterations executed: 631334006, execution time: 1.35056
+Thread 2 iterations executed: 631335406, execution time: 1.35662
+Thread 3 iterations executed: 631301965, execution time: 1.34826
+Thread 4 iterations executed: 631353325, execution time: 1.3506
+Thread 5 iterations executed: 631301581, execution time: 1.34994
+Thread 6 iterations executed: 631335410, execution time: 1.35085
+Thread 7 iterations executed: 631334695, execution time: 1.35058
 
-Dynamic: 1.59795 s
-Thread 0 iterations executed: 583139419
-Thread 1 iterations executed: 711962679
-Thread 2 iterations executed: 670236686
-Thread 3 iterations executed: 626172207
-Thread 4 iterations executed: 697229612
-Thread 5 iterations executed: 572770822
-Thread 6 iterations executed: 586498105
-Thread 7 iterations executed: 603215453
+Size 1
+Dynamic: 1.59631 s
+Thread 0 iterations executed: 583139419, execution time: 1.26261
+Thread 1 iterations executed: 668250326, execution time: 1.49149
+Thread 2 iterations executed: 691769318, execution time: 1.55271
+Thread 3 iterations executed: 586498105, execution time: 1.28034
+Thread 4 iterations executed: 578539745, execution time: 1.23971
+Thread 5 iterations executed: 603147994, execution time: 1.2397
+Thread 6 iterations executed: 711962679, execution time: 1.59629
+Thread 7 iterations executed: 627917397, execution time: 1.3826
 
 \end{lstlisting}
 
-Patrząc na ilość wykonanych iteracji dla każdego wątku można stwierdzić,
-że najlepsze rozłożenie pracy zapewnia Harmonogram guided oraz dynamic (przy założeniu
-domyślnych rozmiarów bloków).
+Patrząc na ilość wykonanych iteracji dla każdego wątku oraz czasy wykonania można stwierdzić,
+że najlepsze rozłożenie pracy zapewnia Harmonogram static, gdy dobierzemy rozmiar bloku 1.
 \newline{}
 \end{document}
