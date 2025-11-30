@@ -1,0 +1,243 @@
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+
+\usepackage[margin=2.5cm]{geometry}
+
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{subcaption}   % w preambule
+\geometry{margin=2cm}
+
+\title{Równoległe generowanie spirali Ulama z użyciem OpenMP}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Cel ćwiczenia}
+
+Celem projektu było zbadanie wydajności równoległego generowania spirali Ulama.
+W szczególności porównano dwie metody:
+
+\begin{itemize}
+    \item \textbf{UlamBlocks} — równoległe przetwarzanie bloków macierzy z użyciem dyrektywy \texttt{collapse(2)},
+    \item \textbf{UlamBlocksNest} — równoległość zagnieżdżona, w której dla każdego bloku tworzony jest dodatkowy obszar równoległy.
+\end{itemize}
+
+Analizowano wpływ liczby wątków oraz rozmiaru bloków na całkowity czas wykonania.
+
+
+\newpage{}
+\section{Techniki OpenMP}
+\subsection{Wizualizajca}
+
+\begin{figure}[htbp]
+    \centering
+    
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/2x2.png}
+        \caption{Podział na bloki 2x2, 4 wątki}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../PPMs/4x4.png}
+        \caption{Podział na bloki 4x4, 16 wątków}
+    \end{subfigure}
+
+    \caption{Obie metody dają to samo kolorowanie}
+\end{figure}
+
+\subsection{Metoda UlamBlocks}
+
+Równoleglenie po blokach macierzy:
+
+\begin{verbatim}
+#pragma omp parallel
+{
+    #pragma omp for collapse(2) schedule(dynamic) nowait
+    for (bi = 0; bi < Size; bi += block)
+        for (bj = 0; bj < Size; bj += block)
+            ...
+}
+\end{verbatim}
+
+Całość wykonywana jest w jednym obszarze równoległym.
+
+\subsection{Metoda UlamBlocksNest}
+
+Włączono pełne zagnieżdżanie:
+
+\begin{verbatim}
+omp_set_nested(1);
+\end{verbatim}
+
+Każdy blok macierzy generuje \emph{drugi} region równoległy:
+
+\begin{verbatim}
+#pragma omp parallel
+{
+    #pragma omp for collapse(2)
+    for (bi ...)
+        for (bj ...)
+        {
+            #pragma omp parallel
+            {
+                #pragma omp for collapse(2)
+                for (x ...)
+                    for (y ...)
+                        ...
+            }
+        }
+}
+\end{verbatim}
+
+Pozwala to tworzyć hierarchiczne równoleglenie, lecz zwiększa narzut.
+
+\section{Konfiguracja eksperymentów}
+
+Dla rozmiaru macierzy:
+
+\[
+Size = 1024
+\]
+
+przeprowadzono pomiary dla:
+
+\begin{itemize}
+    \item liczby wątków: $1, 2, 4, 8, 16$,
+    \item wielkości bloków: od $Size/16$ do $Size/2$,
+    \item liczby powtórzeń: $5$.
+\end{itemize}
+
+\section{Wyniki}
+
+\begin{figure}[htbp]
+    \centering
+    
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../Plots/plot_BlockSize_64.png}
+        \caption{Rozmiar bloku 64}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \centering \includegraphics[width=\textwidth]{../Plots/plot_BlockSize_128.png}
+        \caption{Rozmiar bloku 128}
+    \end{subfigure}
+
+
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \centering \includegraphics[width=\textwidth]{../Plots/plot_BlockSize_256.png}
+        \caption{Rozmiar bloku 256}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \centering \includegraphics[width=\textwidth]{../Plots/plot_BlockSize_512.png}
+        \caption{Rozmiar bloku 512}
+    \end{subfigure}
+
+    \caption{\centering Harmonagramowanie static; podział bloków w zależności od ilości użytych wątków z domyślną wielkością bloku}
+\end{figure}
+
+Wyniki zostały zebrane i przedstawione na wykresach zależnych od \textbf{BlockSize}, gdzie oś X to liczba wątków, a Y to średni czas wykonania.
+
+Metoda \textbf{UlamBlocks} wykazała:
+
+\begin{itemize}
+    \item niemal liniową skalowalność do 8 wątków,
+    \item wzrost czasu przy zbyt dużych blokach,
+    \item najlepsze wyniki dla $block = 128$.
+\end{itemize}
+
+Metoda \textbf{UlamBlocksNest} wykazała:
+
+\begin{itemize}
+    \item wyraźnie większy narzut tworzenia zagnieżdżonych sekcji,
+    \item spadek wydajności powyżej 4 wątków,
+    \item silną zależność od kosztu zarządzania wątkami.
+\end{itemize}
+
+\begin{lstlisting}[caption={Czasy wykonania dla dużej liczby wątków oraz dużych bloków},language={bash}]
+UlamBlocksNest
+BlockSize = 512, avg time = 0.0443896 s
+Thread 0, time = 0.019412 s
+Thread 1, time = 0.0145409 s
+Thread 2, time = 0.0195141 s
+Thread 3, time = 0.0171099 s
+Thread 4, time = 0 s
+Thread 5, time = 0 s
+Thread 6, time = 0 s
+Thread 7, time = 0 s
+Thread 8, time = 0 s
+Thread 9, time = 9.53674e-07 s
+Thread 10, time = 9.53674e-07 s
+Thread 11, time = 0 s
+Thread 12, time = 0 s
+Thread 13, time = 0 s
+Thread 14, time = 0 s
+Thread 15, time = 0 s
+...
+UlamBlocks
+BlockSize = 512, avg time = 0.0394888 s
+Thread 0, time = 0.0226781 s
+Thread 1, time = 0.0436931 s
+Thread 2, time = 0 s
+Thread 3, time = 0 s
+Thread 4, time = 0 s
+Thread 5, time = 0 s
+Thread 6, time = 0 s
+Thread 7, time = 0 s
+Thread 8, time = 0.0226719 s
+Thread 9, time = 0 s
+Thread 10, time = 0 s
+Thread 11, time = 0 s
+Thread 12, time = 0 s
+Thread 13, time = 0.043663 s
+Thread 14, time = 0 s
+Thread 15, time = 0 s
+
+\end{lstlisting}
+Niektóre wątki siedzą bezczynnie z powodu dużych bloków, które dzielą zadanie
+np. tak jak w tym przykładzie na 4 bloki.
+\section{Analiza}
+
+\subsection{Porównanie metod}
+
+\begin{itemize}
+    \item \textbf{UlamBlocks} jest efektywna dzięki jednemu regionowi równoległemu i małemu narzutowi.
+    \item \textbf{UlamBlocksNest} generuje dużą liczbę dodatkowych wątków, co prowadzi do degradacji wydajności.
+        Jest ona jednak lepsza dla niskiej liczby wątków.
+\end{itemize}
+
+Równoległość zagnieżdżona okazuje się nieopłacalna w przypadku tak drobnego zadania jak operacje na pojedynczych pikselach,
+jeśli chcemy, aby skolowało się one z liczbą wątków.
+
+\subsection{Wpływ rozmiaru bloków}
+
+\begin{itemize}
+    \item małe bloki $\rightarrow$ dużo iteracji pętli, spory narzut planisty OpenMP,
+    \item duże bloki $\rightarrow$ słabe wyrównanie obciążenia,
+    \item optimum: bloki średnie (ok. $64$–$128$ dla Size=1024).
+\end{itemize}
+
+\subsection{Skalowanie}
+
+\begin{itemize}
+    \item dobra skalowalność dla dobrze dobrego rozmiaru bloków,
+    \item powyżej 8 (dla nested 4) wątków, szczególnie przy dużych blokach, w niektórych przypadkach możemy zauważyć,
+    że tracimy na wydajności ze względu na to że pracują tylko niektóre wątki a my i tak powołujemy wszystkie
+    do życia. 
+\end{itemize}
+
+
+\end{document}
