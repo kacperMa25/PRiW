@@ -20,12 +20,7 @@ enum Direction {
 std::mutex coutMutex;
 
 struct Position {
-    Position()
-        : y(0)
-        , x(0)
-    {
-    }
-    Position(const int _y, const int _x)
+    Position(const int _y = 0, const int _x = 0)
         : y(_y)
         , x(_x)
     {
@@ -111,19 +106,22 @@ struct Position {
 
 class Maze {
 public:
-    Maze() = default;
+    Maze();
     ~Maze();
 
     void loadFromFile(const std::string&);
     void printBoard();
     void generateMaze(int, int);
     void run();
+    void printStats();
 
     void saveToPPM(const std::string&, const int);
 
 private:
     std::vector<std::vector<int>> mazeMatrix;
-    std::vector<std::vector<omp_lock_t*>> cellLock;
+    std::vector<std::vector<omp_lock_t>> cellLock;
+    std::vector<int> childrenCount;
+    omp_lock_t childrenCountMutex;
     unsigned int threadCounter = 1;
     omp_lock_t threadCounterMutex;
 
@@ -142,9 +140,17 @@ private:
     void generateDFS(int x, int y);
 };
 
+Maze::Maze()
+{
+    omp_init_lock(&threadCounterMutex);
+    omp_init_lock(&childrenCountMutex);
+}
+
 Maze::~Maze()
 {
     clear();
+    omp_destroy_lock(&threadCounterMutex);
+    omp_destroy_lock(&childrenCountMutex);
 }
 
 void Maze::loadFromFile(const std::string& fileName)
@@ -168,7 +174,7 @@ void Maze::loadFromFile(const std::string& fileName)
     for (int i = 0; i < mazeMatrix.size(); ++i) {
         cellLock[i].resize(mazeMatrix[i].size());
         for (int j = 0; j < mazeMatrix[i].size(); ++j) {
-            cellLock[i][j] = new omp_lock_t();
+            omp_init_lock(&cellLock[i][j]);
         }
     }
 }
@@ -201,7 +207,7 @@ void Maze::generateMaze(int h, int w)
     for (int y = 0; y < h; ++y) {
         cellLock[y].resize(w);
         for (int x = 0; x < w; ++x)
-            cellLock[y][x] = new omp_lock_t();
+            omp_init_lock(&cellLock[y][x]);
     }
 
     generateDFS(1, 1);
@@ -215,6 +221,17 @@ void Maze::printBoard()
         }
         std::cout << std::endl;
     }
+}
+
+void Maze::printStats()
+{
+    std::cout << "Threads spawned: " << threadCounter - 1 << std::endl;
+    int childrenSum = 0;
+    for (int tid = 0; tid < childrenCount.size(); ++tid) {
+        std::cout << "Thread " << tid + 1 << " had " << childrenCount[tid] << " children" << std::endl;
+        childrenSum += childrenCount[tid];
+    }
+    std::cout << "Control sum: " << childrenSum + 1 << std::endl;
 }
 
 void Maze::run()
@@ -232,8 +249,14 @@ void Maze::run()
 
     int id = getID();
     trySettingPositionStatus(startingPos, id);
-#pragma omp task
-    threadTraverse(id, startingPos);
+
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+            threadTraverse(id, startingPos);
+        }
+    }
 }
 
 void Maze::saveToPPM(const std::string& fileName, const int scale = 1)
@@ -257,7 +280,7 @@ void Maze::saveToPPM(const std::string& fileName, const int scale = 1)
                 } else if (cell > 0) {
                     r = (255 / threadCounter) * (cell - 1);
                     g = 255 - r;
-                    b = 0;
+                    b = 255 - r;
                 } else {
                     r = g = b = 0;
                 }
@@ -273,6 +296,10 @@ void Maze::saveToPPM(const std::string& fileName, const int scale = 1)
 
 void Maze::threadTraverse(const int tid, const Position& startingPos)
 {
+    omp_set_lock(&childrenCountMutex);
+    childrenCount.push_back(0);
+    omp_unset_lock(&childrenCountMutex);
+
     Position currentPos(startingPos);
     bool moved = true;
 
@@ -284,7 +311,9 @@ void Maze::threadTraverse(const int tid, const Position& startingPos)
             Position next = Position(currentPos, dir);
 
             if (moved) {
-                trySpawningThread(next);
+                if (trySpawningThread(next)) {
+                    childrenCount[tid]++;
+                }
             } else if (trySettingPositionStatus(next, tid)) {
                 moved = true;
                 whereToGo = dir;
@@ -295,49 +324,52 @@ void Maze::threadTraverse(const int tid, const Position& startingPos)
 
     std::lock_guard<std::mutex> guard(coutMutex);
     std::cout << "Thread: " << tid << " ended" << std::endl;
-#pragma omp taskwait
 }
 
 int Maze::getPositionStatus(const Position& pos)
 {
-    omp_set_lock(cellLock[pos.y][pos.x]);
+    omp_set_lock(&cellLock[pos.y][pos.x]);
     int status = mazeMatrix[pos.y][pos.x];
-    omp_unset_lock(cellLock[pos.y][pos.x]);
+    omp_unset_lock(&cellLock[pos.y][pos.x]);
 
     return status;
 }
 
 void Maze::setPositionStatus(const Position& pos, int status)
 {
-    omp_set_lock(cellLock[pos.y][pos.x]);
+    omp_set_lock(&cellLock[pos.y][pos.x]);
     mazeMatrix[pos.y][pos.x] = status;
-    omp_unset_lock(cellLock[pos.y][pos.x]);
+    omp_unset_lock(&cellLock[pos.y][pos.x]);
 }
 
 bool Maze::trySettingPositionStatus(const Position& pos, int newStatus)
 {
     bool set = false;
-    omp_set_lock(cellLock[pos.y][pos.x]);
+    omp_set_lock(&cellLock[pos.y][pos.x]);
     if (mazeMatrix[pos.y][pos.x] == 0) {
         mazeMatrix[pos.y][pos.x] = newStatus;
         set = true;
     }
-    omp_unset_lock(cellLock[pos.y][pos.x]);
+    omp_unset_lock(&cellLock[pos.y][pos.x]);
     return set;
 }
 
 bool Maze::trySpawningThread(const Position& pos)
 {
     bool spawned = false;
-    omp_set_lock(cellLock[pos.y][pos.x]);
+    omp_set_lock(&cellLock[pos.y][pos.x]);
     if (mazeMatrix[pos.y][pos.x] == 0) {
         int id = getID();
         mazeMatrix[pos.y][pos.x] = id;
 #pragma omp task
+        omp_unset_lock(&cellLock[pos.y][pos.x]);
         threadTraverse(id, Position(pos.y, pos.x));
         spawned = true;
     }
-    omp_unset_lock(cellLock[pos.y][pos.x]);
+
+    if (!spawned) {
+        omp_unset_lock(&cellLock[pos.y][pos.x]);
+    }
 
     return spawned;
 }
@@ -354,7 +386,7 @@ void Maze::clearCellMutex()
 {
     for (auto& row : cellLock) {
         for (auto& cell : row) {
-            delete cell;
+            omp_destroy_lock(&cell);
         }
     }
     cellLock.clear();
@@ -373,6 +405,7 @@ int main()
     maze.run();
     maze.printBoard();
     maze.saveToPPM("maze.ppm", 16);
+    maze.printStats();
 
     return 0;
 }

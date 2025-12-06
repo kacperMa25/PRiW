@@ -1,0 +1,36 @@
+Threads spawned: 34
+Thread 1 had 0 children
+Thread 2 had 1 children
+Thread 3 had 6 children
+Thread 4 had 4 children
+Thread 5 had 5 children
+Thread 6 had 0 children
+Thread 7 had 0 children
+Thread 8 had 1 children
+Thread 9 had 1 children
+Thread 10 had 0 children
+Thread 11 had 2 children
+Thread 12 had 1 children
+Thread 13 had 1 children
+Thread 14 had 0 children
+Thread 15 had 1 children
+Thread 16 had 0 children
+Thread 17 had 1 children
+Thread 18 had 0 children
+Thread 19 had 0 children
+Thread 20 had 4 children
+Thread 21 had 0 children
+Thread 22 had 0 children
+Thread 23 had 0 children
+Thread 24 had 0 children
+Thread 25 had 0 children
+Thread 26 had 1 children
+Thread 27 had 1 children
+Thread 28 had 1 children
+Thread 29 had 0 children
+Thread 30 had 1 children
+Thread 31 had 0 children
+Thread 32 had 0 children
+Thread 33 had 0 children
+Thread 34 had 1 children
+Control sum: 34
