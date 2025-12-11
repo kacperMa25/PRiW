@@ -361,8 +361,8 @@ bool Maze::trySpawningThread(const Position& pos)
     if (mazeMatrix[pos.y][pos.x] == 0) {
         int id = getID();
         mazeMatrix[pos.y][pos.x] = id;
-#pragma omp task
         omp_unset_lock(&cellLock[pos.y][pos.x]);
+#pragma omp task
         threadTraverse(id, Position(pos.y, pos.x));
         spawned = true;
     }

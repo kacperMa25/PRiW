@@ -9,6 +9,8 @@
 #include <thread>
 #include <vector>
 
+#include "tbb/tbb.h"
+
 const int iXmax = 20000;
 const int iYmax = 20000;
 const double CxMin = -2.5;
@@ -27,8 +29,6 @@ std::mutex mtx;
 int counter = 0;
 
 void mandelbrotThread(int tid, unsigned char* threadColor);
-void mandelbrotThreadDynamic(int tid, unsigned char* threadColor);
-void mandelbrotThreadMutex(int tid, unsigned char* threadColor);
 
 template <typename Func>
 double runExperiment(const std::string& name, Func func, int runs,
@@ -80,16 +80,11 @@ double runExperiment(const std::string& name, Func func, int runs,
 
 int main()
 {
-    bool newFile = !std::filesystem::exists("mandelbrot_times_pc.csv");
     std::ofstream csv("mandelbrot_times_pc.csv", std::ios::app);
-    if (newFile)
-        csv << "method,threads,run,time_seconds\n";
+    csv << "method,threads,run,time_seconds\n";
 
-    // runExperiment("Block", mandelbrotThreadBlock, 3, csv);
-    // runExperiment("Dynamic", mandelbrotThreadDynamic, 3, csv);
-    runExperiment("Mutex", mandelbrotThreadMutex, 3, csv);
-
-    csv.close();
+    mandelbrotThread(1, unsigned char* threadColor)
+        csv.close();
     return 0;
 }
 
@@ -106,104 +101,8 @@ void mandelbrotThread(int tid, unsigned char* threadColor)
     double Zx, Zy, Zx2, Zy2;
     double ER2 = EscapeRadius * EscapeRadius;
 
-    for (iY = lowerBound; iY < upperBound; ++iY) {
-        Cy = CyMin + iY * PixelHeight;
-        if (fabs(Cy) < PixelHeight / 2)
-            Cy = 0.0;
-
-        for (iX = 0; iX < iXmax; iX++) {
-            Cx = CxMin + iX * PixelWidth;
-            Zx = Zy = 0.0;
-            Zx2 = Zy2 = 0.0;
-
-            for (Iteration = 0; Iteration < IterationMax && (Zx2 + Zy2) < ER2;
-                Iteration++) {
-                Zy = 2 * Zx * Zy + Cy;
-                Zx = Zx2 - Zy2 + Cx;
-                Zx2 = Zx * Zx;
-                Zy2 = Zy * Zy;
-            }
-            sum[tid] += Iteration;
-
-            if (Iteration == IterationMax) {
-                color[iY][iX][0] = color[iY][iX][1] = color[iY][iX][2] = 0;
-            } else {
-                color[iY][iX][0] = threadColor[0];
-                color[iY][iX][1] = threadColor[1];
-                color[iY][iX][2] = threadColor[2];
-            }
-        }
-    }
-    auto end = std::chrono::steady_clock::now();
-    threadExecTime[tid] = (end - start).count();
-}
-void mandelbrotThreadDynamic(int tid, unsigned char* threadColor)
-{
-    auto start = std::chrono::steady_clock::now();
-    int lowerBound = (iYmax / nr_threads) * tid;
-    int upperBound = lowerBound + (iYmax / nr_threads);
-
-    int iX, iY, Iteration;
-    double Cx, Cy;
-    double PixelWidth = (CxMax - CxMin) / iXmax;
-    double PixelHeight = (CyMax - CyMin) / iYmax;
-    double Zx, Zy, Zx2, Zy2;
-    double ER2 = EscapeRadius * EscapeRadius;
-
-    for (iY = tid; iY < iYmax; iY += nr_threads) {
-        Cy = CyMin + iY * PixelHeight;
-        if (fabs(Cy) < PixelHeight / 2)
-            Cy = 0.0;
-
-        for (iX = 0; iX < iXmax; iX++) {
-            Cx = CxMin + iX * PixelWidth;
-            Zx = Zy = 0.0;
-            Zx2 = Zy2 = 0.0;
-
-            for (Iteration = 0; Iteration < IterationMax && (Zx2 + Zy2) < ER2;
-                Iteration++) {
-                Zy = 2 * Zx * Zy + Cy;
-                Zx = Zx2 - Zy2 + Cx;
-                Zx2 = Zx * Zx;
-                Zy2 = Zy * Zy;
-            }
-            sum[tid] += Iteration;
-
-            if (Iteration == IterationMax) {
-                color[iY][iX][0] = color[iY][iX][1] = color[iY][iX][2] = 0;
-            } else {
-                color[iY][iX][0] = threadColor[0];
-                color[iY][iX][1] = threadColor[1];
-                color[iY][iX][2] = threadColor[2];
-            }
-        }
-    }
-    auto end = std::chrono::steady_clock::now();
-    threadExecTime[tid] = (end - start).count();
-}
-
-void mandelbrotThreadMutex(int tid, unsigned char* threadColor)
-{
-    auto start = std::chrono::steady_clock::now();
-    int lowerBound = (iYmax / nr_threads) * tid;
-    int upperBound = lowerBound + (iYmax / nr_threads);
-
-    int iX, iY, Iteration;
-    double Cx, Cy;
-    double PixelWidth = (CxMax - CxMin) / iXmax;
-    double PixelHeight = (CyMax - CyMin) / iYmax;
-    double Zx, Zy, Zx2, Zy2;
-    double ER2 = EscapeRadius * EscapeRadius;
-
-    int myID = 0;
-
-    while (myID < iYmax) {
-        mtx.lock();
-        myID = counter++;
-        mtx.unlock();
-
-        iY = myID;
-        if (iY < iYmax) {
+    tbb::parallel_for(tbb::blocked_range<int>(0, iYmax),
+        [&](tbb::blocked_range<int> r) {
             Cy = CyMin + iY * PixelHeight;
             if (fabs(Cy) < PixelHeight / 2)
                 Cy = 0.0;
@@ -230,8 +129,7 @@ void mandelbrotThreadMutex(int tid, unsigned char* threadColor)
                     color[iY][iX][2] = threadColor[2];
                 }
             }
-        }
-    }
+        });
+
     auto end = std::chrono::steady_clock::now();
-    threadExecTime[tid] = (end - start).count();
 }

@@ -1,0 +1,6 @@
+
+CompileFlags:
+  Add: [
+    "-I/opt/homebrew/opt/tbb/include",
+    "-L/opt/homebrew/opt/tbb/lib"
+  ]
