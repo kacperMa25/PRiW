@@ -32,7 +32,7 @@ char* readKernelSource(const char* filename, size_t* length)
 
 int main()
 {
-    std::string fileName = "./openCL.csv";
+    std::string fileName = "./openCLDouble.csv";
     bool newFile = !std::filesystem::exists(fileName);
 
     std::ofstream csv(fileName, std::ios::app);
@@ -70,14 +70,14 @@ int main()
     for (int i = 1200; i < MAX_SIZE; i += 1200) {
         auto start = std::chrono::high_resolution_clock::now();
         const unsigned int N = i;
-        std::vector<float> A(N * N, 1.0f); // Macierz A
-        std::vector<float> B(N * N, 1.0f); // Macierz B
-        std::vector<float> C(N * N, 0.0f); // Macierz wynikowa C
+        std::vector<double> A(N * N, 1.0f); // Macierz A
+        std::vector<double> B(N * N, 1.0f); // Macierz B
+        std::vector<double> C(N * N, 0.0f); // Macierz wynikowa C
 
         // Alokacja pamiÄci na dane
-        cl_mem bufferA = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * N * N, A.data(), &err);
-        cl_mem bufferB = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float) * N * N, B.data(), &err);
-        cl_mem bufferC = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * N * N, nullptr, &err);
+        cl_mem bufferA = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(double) * N * N, A.data(), &err);
+        cl_mem bufferB = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(double) * N * N, B.data(), &err);
+        cl_mem bufferC = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(double) * N * N, nullptr, &err);
 
         // Przekazanie danych do kernela
         clSetKernelArg(kernel, 0, sizeof(cl_mem), &bufferA);
@@ -92,7 +92,7 @@ int main()
         err = clEnqueueNDRangeKernel(queue, kernel, 2, nullptr, globalSize, localSize, 0, nullptr, nullptr);
         clFinish(queue);
         // Pobranie wynikĂłw
-        err = clEnqueueReadBuffer(queue, bufferC, CL_TRUE, 0, sizeof(float) * N * N, C.data(), 0, nullptr, nullptr);
+        err = clEnqueueReadBuffer(queue, bufferC, CL_TRUE, 0, sizeof(double) * N * N, C.data(), 0, nullptr, nullptr);
         // Czyszczenie zasobĂłw
         clReleaseMemObject(bufferA);
         clReleaseMemObject(bufferB);
